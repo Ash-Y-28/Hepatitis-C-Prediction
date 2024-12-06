@@ -1,0 +1,26 @@
+---
+title: "Data Mining Final Project"
+author: "RAVLEEN KAUR CHADHA, MRIDULA KALAISELVAN, YASH SHARMA"
+format:
+  html:
+    embed-resources: true
+toc: true
+execute: 
+  warning: false
+  messages: false
+---
+
+```{r load-packages}
+
+if(!require(pacman)) 
+  install.packages("pacman") 
+
+devtools::install_github("tidyverse/dsbox") 
+pacman::p_load(tidyverse, 
+               scales, 
+               devtools,
+               here, 
+               tigris, 
+               sf, 
+               ggrepel, 
+               readxl) 
