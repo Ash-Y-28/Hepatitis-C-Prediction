@@ -19,8 +19,8 @@ devtools::install_github("tidyverse/dsbox")
 pacman::p_load(tidyverse, 
                scales, 
                devtools,
-               here, 
-               tigris, 
-               sf, 
-               ggrepel, 
-               readxl) 
+               here) 
+```
+```{r}
+hepatitis <- read_csv("HepatitisCdata.csv")
+```
