@@ -21,8 +21,20 @@ pacman::p_load(tidyverse,
                devtools,
                here) 
 ```
+
+
 ```{r}
-#| label: label-me-1
+# Reading the dataset
 hepatitis <- read_csv("HepatitisCdata.csv")
+```
+
+
+```{r}
+# Handling the NA values by replacing them by the median of each column
+hepatitis <- hepatitis %>%
+  mutate(across(where(is.numeric), ~ ifelse(is.na(.), median(., na.rm = TRUE), .)))
+
+# Verifying that all NA values have been handled
+colSums(is.na(hepatitis))
 ```
 
