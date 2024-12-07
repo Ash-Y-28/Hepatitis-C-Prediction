@@ -22,5 +22,7 @@ pacman::p_load(tidyverse,
                here) 
 ```
 ```{r}
+#| label: label-me-1
 hepatitis <- read_csv("HepatitisCdata.csv")
 ```
+
