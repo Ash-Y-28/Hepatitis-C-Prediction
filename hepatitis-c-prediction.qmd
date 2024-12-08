@@ -32,7 +32,8 @@ pacman::p_load(tidyverse,
                cluster, 
                dbscan,
                arules,
-               arulesViz)
+               arulesViz,
+               )
 
 ```
 
@@ -497,13 +498,16 @@ cat("Average Silhouette Score:", round(avg_silhouette, 2), "\n")
 ```{r}
 
 # Install and load required libraries
-if (!requireNamespace("e1071", quietly = TRUE)) {
+if (!requireNamespace("e1071", 
+                      quietly = TRUE)) {
   install.packages("e1071")
 }
-if (!requireNamespace("caret", quietly = TRUE)) {
+if (!requireNamespace("caret", 
+                      quietly = TRUE)) {
   install.packages("caret")
 }
-if (!requireNamespace("dplyr", quietly = TRUE)) {
+if (!requireNamespace("dplyr",
+                      quietly = TRUE)) {
   install.packages("dplyr")
 }
 library(e1071)
@@ -610,7 +614,8 @@ hepatitis_categorized <- hepatitis %>%
   )
 
 # 2. Create transactions
-hepatitis_trans <- as(data.frame(select(hepatitis_categorized, 
+hepatitis_trans <-
+  as(data.frame(select(hepatitis_categorized, 
     Age_Group, ALT_Level, AST_Level, Disease_Status)), 
     "transactions")
 
@@ -624,8 +629,10 @@ rules <- apriori(hepatitis_trans,
     ))
 
 # 4. Process rules
-rules_pruned <- rules[!is.redundant(rules)]
-rules_sorted <- sort(rules_pruned, by = "lift", decreasing = TRUE)
+rules_pruned <- 
+  rules[!is.redundant(rules)]
+rules_sorted <- 
+  sort(rules_pruned, by = "lift", decreasing = TRUE)
 
 # 5. Create rules dataframe
 rules_df <- data.frame(
@@ -636,8 +643,9 @@ rules_df <- data.frame(
     lift = quality(rules_sorted)$lift
 )
 
+# 6. Visualization
 # Scatter Plot
-plot_ly(rules_df, 
+scatter_plot <- plot_ly(rules_df, 
         x = ~support,
         y = ~confidence,
         color = ~lift,
@@ -645,13 +653,247 @@ plot_ly(rules_df,
         mode = "markers",
         marker = list(size = 10),
         text = ~paste("Rule:", lhs, "=>", rhs)) %>%
-    layout(title = "Rule Quality Metrics")
-# 6. Print Quality Assessment
-    cat("\nNumber of Rules:", nrow(rules_df))
-    cat("\nAverage Confidence (Accuracy):", mean(rules_df$confidence))
-    cat("\nAverage Lift:", mean(rules_df$lift))
-    cat("\nAverage Support:", mean(rules_df$support))
+    layout(
+        title = "Apriori Algorithm",
+        xaxis = list(title = "Support"),
+        yaxis = list(title = "Confidence"),
+        colorbar = list(title = "Lift")
+    )
 
+
+
+# 7. Print Quality Assessment
+cat("\nAssociation Rule Analysis Summary:")
+cat("\nNumber of Rules:", nrow(rules_df))
+cat("\nAverage Confidence (Accuracy):", round(mean(rules_df$confidence), 4))
+cat("\nAverage Lift:", round(mean(rules_df$lift), 4))
+cat("\nAverage Support:", round(mean(rules_df$support), 4))
+
+# Print top 10 rules
+cat("\n\nTop 10 Rules by Lift:\n")
+head(rules_df[order(-rules_df$lift), 
+              c("lhs", "rhs", "support", "confidence", "lift")], 10)
+
+# Display plots
+scatter_plot
+
+
+
+```
+### CHARM Algorithm 
+```{r}
+# Load required libraries
+library(tidyverse)
+library(arules)
+library(arulesViz)
+library(plotly)
+
+# 1. Data Preprocessing
+hepatitis_categorized <- hepatitis %>%
+  mutate(
+    Age_Group = case_when(
+      Age < 35 ~ "Young",
+      Age < 50 ~ "Middle",
+      Age < 65 ~ "Senior",
+      TRUE ~ "Elderly"
+    ),
+    ALT_Level = case_when(
+      ALT < 40 ~ "ALT_Normal",
+      ALT < 80 ~ "ALT_Mild_Elevation",
+      ALT < 200 ~ "ALT_Moderate_Elevation",
+      TRUE ~ "ALT_Severe_Elevation"
+    ),
+    AST_Level = case_when(
+      AST < 40 ~ " AST_Normal",
+      AST < 80 ~ " AST_Mild_Elevation",
+      AST < 200 ~ " AST_Moderate_Elevation",
+      TRUE ~ " AST_Severe_Elevation"
+    ),
+    Disease_Status = case_when(
+      Category == 0 ~ "Blood_Donor",
+      Category == 1 ~ "Suspect",
+      Category == 2 ~ "Hepatitis",
+      Category == 3 ~ "Fibrosis",
+      Category == 4 ~ "Cirrhosis"
+    )
+  )
+
+# 2. CHARM Implementation
+charm_association_rules <- function(data, min_support = 0.05, min_confidence = 0.5) {
+    # Convert to transaction format
+    trans_matrix <- as.matrix(data)
+    n_trans <- nrow(trans_matrix)
+    
+    # Find unique items
+    items <- unique(as.character(trans_matrix))
+    cat("Initial items:", length(items), "\n")
+    
+    # Create vertical database (tid-lists)
+    tid_lists <- list()
+    frequent_items <- character()
+    
+    # Find frequent single items
+    for(item in items) {
+        tids <- which(apply(trans_matrix, 1, function(x) item %in% x))
+        support <- length(tids)/n_trans
+        if(support >= min_support) {
+            tid_lists[[item]] <- tids
+            frequent_items <- c(frequent_items, item)
+        }
+    }
+    
+    cat("Frequent items:", length(frequent_items), "\n")
+    
+    # Store closed itemsets
+    closed_itemsets <- list()
+    
+    # Find closed itemsets
+    find_closed_itemsets <- function(prefix = character(), prefix_tids = NULL, 
+                                   remaining_items = frequent_items) {
+        for(i in seq_along(remaining_items)) {
+            item <- remaining_items[i]
+            new_tids <- if(is.null(prefix_tids)) tid_lists[[item]]
+                       else intersect(prefix_tids, tid_lists[[item]])
+            
+            support <- length(new_tids)/n_trans
+            
+            if(support >= min_support) {
+                new_itemset <- c(prefix, item)
+                
+                # Check if closed
+                is_closed <- TRUE
+                for(existing in names(closed_itemsets)) {
+                    if(all(new_itemset %in% strsplit(existing, ",")[[1]]) && 
+                       closed_itemsets[[existing]]$support == support) {
+                        is_closed <- FALSE
+                        break
+                    }
+                }
+                
+                if(is_closed) {
+                    closed_itemsets[[paste(new_itemset, collapse=",")]] <<- list(
+                        items = new_itemset,
+                        support = support,
+                        tids = new_tids
+                    )
+                }
+                
+                # Recursive call with remaining items
+                if(i < length(remaining_items)) {
+                    find_closed_itemsets(new_itemset, new_tids, 
+                                       remaining_items[(i+1):length(remaining_items)])
+                }
+            }
+        }
+    }
+    
+    # Generate closed itemsets
+    cat("Generating closed itemsets...\n")
+    find_closed_itemsets()
+    cat("Found", length(closed_itemsets), "closed itemsets\n")
+    
+    # Generate rules from closed itemsets
+    rules <- data.frame(
+        lhs = character(),
+        rhs = character(),
+        support = numeric(),
+        confidence = numeric(),
+        lift = numeric(),
+        stringsAsFactors = FALSE
+    )
+    
+    # Generate rules
+    cat("Generating association rules...\n")
+    for(itemset_key in names(closed_itemsets)) {
+        itemset <- closed_itemsets[[itemset_key]]
+        if(length(itemset$items) >= 2) {
+            for(i in 1:(length(itemset$items)-1)) {
+                combs <- combn(itemset$items, i, simplify = FALSE)
+                for(lhs in combs) {
+                    rhs <- setdiff(itemset$items, lhs)
+                    
+                    # Calculate confidence
+                    lhs_support <- max(sapply(names(closed_itemsets), function(key) {
+                        if(all(lhs %in% closed_itemsets[[key]]$items))
+                            return(closed_itemsets[[key]]$support)
+                        return(0)
+                    }))
+                    
+                    if(lhs_support > 0) {
+                        confidence <- itemset$support / lhs_support
+                        
+                        if(confidence >= min_confidence) {
+                            # Calculate lift
+                            rhs_support <- max(sapply(names(closed_itemsets), function(key) {
+                                if(all(rhs %in% closed_itemsets[[key]]$items))
+                                    return(closed_itemsets[[key]]$support)
+                                return(0)
+                            }))
+                            
+                            lift <- confidence / rhs_support
+                            
+                            rules[nrow(rules) + 1,] <- list(
+                                lhs = paste(lhs, collapse=", "),
+                                rhs = paste(rhs, collapse=", "),
+                                support = itemset$support,
+                                confidence = confidence,
+                                lift = lift
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    return(rules)
+}
+
+# 3. Apply CHARM to dataset
+selected_data <- select(hepatitis_categorized, 
+                       Age_Group, ALT_Level, AST_Level, Disease_Status)
+rules <- charm_association_rules(selected_data, min_support = 0.05, min_confidence = 0.5)
+
+# 4. Visualize results
+if(nrow(rules) > 0) {
+    # Scatter plot
+    scatter_plot <- plot_ly(rules,
+        x = ~confidence,
+        y = ~lift,
+        color = ~support,
+        type = "scatter",
+        mode = "markers",
+        text = ~paste("Rule:", lhs, "=>", rhs,
+                     "<br>Support:", round(support, 4),
+                     "<br>Confidence:", round(confidence, 4),
+                     "<br>Lift:", round(lift, 4))
+    ) %>%
+        layout(
+            title = "CHARM Algotrithm",
+            xaxis = list(title = "Confidence"),
+            yaxis = list(title = "Lift"),
+            colorbar = list(title = "Support")
+        )
+    
+    # Print statistics
+    cat("\nAssociation Rule Analysis Results:\n")
+    cat("Total rules found:", nrow(rules), "\n")
+    cat("Average confidence:", round(mean(rules$confidence), 4), "\n")
+    cat("Average lift:", round(mean(rules$lift), 4), "\n")
+    cat("Average support:", round(mean(rules$support), 4), "\n")
+    
+    # Print top rules
+    cat("\nTop 10 Rules by Lift:\n")
+    print(head(rules[order(-rules$lift), ], 10))
+    
+    # Save results
+    write.csv(rules, "charm_rules.csv", row.names = FALSE)
+} else {
+    cat("No rules found. Try adjusting the minimum support or confidence thresholds.\n")
+}
+
+    # Display plot
+  scatter_plot
 ```
 
 
