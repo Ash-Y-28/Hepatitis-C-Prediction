@@ -301,3 +301,39 @@ This graph tells us:
 The model can distinguish between donors and non-donors accurately.
 It catches most donors (87.5%) while making very few mistakes.
 The model is better than random guessing and does a good job even with imbalanced data, thanks to SMOTE.
+
+
+```{r}
+library(ggplot2)
+test_data$Predicted_Probabilities <- smote_predictions
+ggplot(test_data, aes(x = Predicted_Probabilities, fill = BinaryCategory)) +
+  geom_density(alpha = 0.5) +
+  labs(title = "Probability Distribution for Logistic Regression",
+       x = "Predicted Probability",
+       y = "Density",
+       fill = "Actual Class") +
+  theme_minimal()
+```
+```{r}
+coef_df <- as.data.frame(summary(smote_logistic_model)$coefficients)
+coef_df <- coef_df[-1, ]  # Exclude intercept
+coef_df$Feature <- rownames(coef_df)
+ggplot(coef_df, aes(x = reorder(Feature, abs(Estimate)), y = Estimate)) +
+  geom_bar(stat = "identity", fill = "steelblue") +
+  coord_flip() +
+  labs(title = "Feature Importance in Logistic Regression",
+       x = "Feature",
+       y = "Coefficient Value") +
+  theme_minimal()
+```
+```{r}
+ggplot(smote_data, aes(x = ALT, y = AST, color = BinaryCategory)) +
+  geom_point() +
+  stat_smooth(method = "glm", method.args = list(family = "binomial"), se = FALSE) +
+  labs(title = "Decision Boundary of Logistic Regression",
+       x = "ALT",
+       y = "AST") +
+  theme_minimal()
+```
+
+
