@@ -26,7 +26,10 @@ pacman::p_load(tidyverse,
                caret,
                BiocManager,
                smotefamily,
-               pROC) 
+               pROC, 
+               mclust, 
+               factoextra, 
+               cluster) 
 
 ```
 
@@ -319,6 +322,7 @@ ggplot(test_data, aes(x = Predicted_Probabilities, fill = BinaryCategory)) +
        fill = "Actual Class") +
   theme_minimal()
 ```
+
 ```{r}
 coef_df <- as.data.frame(summary(smote_logistic_model)$coefficients)
 coef_df <- coef_df[-1, ]  # Exclude intercept
@@ -331,6 +335,7 @@ ggplot(coef_df, aes(x = reorder(Feature, abs(Estimate)), y = Estimate)) +
        y = "Coefficient Value") +
   theme_minimal()
 ```
+
 ```{r}
 ggplot(smote_data, aes(x = ALT, y = AST, color = BinaryCategory)) +
   geom_point() +
@@ -341,4 +346,81 @@ ggplot(smote_data, aes(x = ALT, y = AST, color = BinaryCategory)) +
   theme_minimal()
 ```
 
+
+### GMM Clustering 
+
+```{r}
+
+# Step 1: Load the dataset
+# Assuming the data has been preprocessed (scaled, PCA applied, and features weighted)
+hepatitis_data <- read.csv("HepatitisC_Cleaned.csv")
+
+# Select numeric columns for clustering
+numeric_data <- hepatitis_data[sapply(hepatitis_data, is.numeric)]
+scaled_data <- scale(numeric_data)
+
+# Perform PCA for dimensionality reduction
+pca <- prcomp(scaled_data, center = TRUE, scale. = TRUE)
+pca_data <- pca$x[, 1:2]  # Retain the first two principal components
+
+# Step 2: Apply Gaussian Mixture Models (GMM)
+set.seed(123)  # Ensure reproducibility
+gmm_model <- Mclust(pca_data)
+
+# Optimal number of clusters
+cat("Optimal Number of Clusters (GMM):", gmm_model$G, "\n")
+
+# Step 3: Evaluate Clustering Quality
+# Silhouette Score
+silhouette_scores <- silhouette(gmm_model$classification, dist(pca_data))
+avg_silhouette <- mean(silhouette_scores[, 3])
+cat("Average Silhouette Score (GMM):", round(avg_silhouette, 2), "\n")
+
+# Adjusted Rand Index (ARI)
+if ("Category" %in% colnames(hepatitis_data)) {
+  actual_labels <- as.numeric(factor(hepatitis_data$Category))  # Replace 'Category' with your actual label column
+  ari <- adjustedRandIndex(actual_labels, gmm_model$classification)
+  cat("Adjusted Rand Index (ARI):", round(ari, 2), "\n")
+} else {
+  cat("No actual labels provided for ARI calculation.\n")
+}
+
+# Step 5: Add Cluster Assignments to Dataset
+hepatitis_data$Cluster <- as.factor(gmm_model$classification)
+
+# Step 6: Analyze Clusters
+# Summary statistics for each cluster
+cluster_summary <- hepatitis_data %>%
+  group_by(Cluster) %>%
+  summarise(across(where(is.numeric), mean, na.rm = TRUE))
+
+# Display cluster summary
+print(cluster_summary)
+
+# Enhanced GMM Clustering Visualization with Labels
+ggplot(as.data.frame(pca_data), aes(x = PC1, y = PC2, color = as.factor(gmm_model$classification))) +
+  geom_point(size = 3, alpha = 0.7) +  # Data points
+  stat_ellipse(aes(fill = as.factor(gmm_model$classification)), alpha = 0.2, geom = "polygon") +  # Ellipses
+  scale_color_manual(values = c("#4CAF50", "#FF5722"), name = "Cluster",
+                     labels = c("Cluster 1: Healthy/Low Risk", "Cluster 2: At-Risk/Diseased")) +
+  scale_fill_manual(values = c("#4CAF50", "#FF5722"), name = "Cluster",
+                    labels = c("Cluster 1: Healthy/Low Risk", "Cluster 2: At-Risk/Diseased")) +
+  labs(
+    title = "Gaussian Mixture Model Clustering",
+    subtitle = "Principal Components and Identified Groups",
+    x = "Principal Component 1 (Explains 33.3% Variance)",
+    y = "Principal Component 2 (Explains 20.5% Variance)"
+  ) +
+  theme_minimal(base_size = 15) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5),
+    legend.position = "right",
+    legend.title = element_text(face = "bold"),
+    legend.text = element_text(size = 10), 
+    axis.title.x = element_text(size = 9), 
+    axis.title.y = element_text(size = 9)
+  )
+
+```
 
