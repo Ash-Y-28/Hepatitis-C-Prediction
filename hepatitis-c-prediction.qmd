@@ -19,8 +19,9 @@ devtools::install_github("tidyverse/dsbox")
 pacman::p_load(tidyverse, 
                scales, 
                devtools,
-               here, 
-               plotly) 
+               here,
+               plotly, 
+               class) 
 ```
 
 
@@ -42,4 +43,101 @@ hepatitis <- hepatitis %>%
 colSums(is.na(hepatitis))
 ```
 
+
+```{r}
+#| label: label-me-3
+
+# EDA for the dataset
+
+# Defining a colorblind-friendly palette
+
+color_palette <- c("#440154FF", "#3B528BFF", "#21908CFF", "#5DC863FF", "#FDE725FF")
+
+# Creating an enhanced interactive scatterplot
+
+p <- plot_ly(
+  data = hepatitis,
+  x = ~AST, 
+  y = ~ALT, 
+  type = 'scatter', 
+  mode = 'markers',
+  color = ~as.factor(Category),
+  colors = color_palette,
+  marker = list(
+    size = 8,
+    opacity = 0.8
+  ),
+  text = ~paste(
+    "Category:", case_when(
+      Category == 0 ~ "Blood Donor",
+      Category == 1 ~ "Suspect Blood Donor",
+      Category == 2 ~ "Hepatitis",
+      Category == 3 ~ "Fibrosis",
+      Category == 4 ~ "Cirrhosis",
+      TRUE ~ as.character(Category)
+    ),
+    "<br>AST:", AST,
+    "<br>ALT:", ALT,
+    "<br>Age:", Age
+  )
+) %>%
+  layout(
+    title = list(
+      text = "Interactive Scatterplot: AST vs ALT by Category",
+      font = list(size = 18)
+    ),
+    xaxis = list(
+      title = "AST (Aspartate Transaminase)",
+      titlefont = list(size = 14),
+      zeroline = FALSE,
+      showgrid = FALSE
+    ),
+    yaxis = list(
+      title = "ALT (Alanine Transaminase)",
+      titlefont = list(size = 14),
+      zeroline = FALSE,
+      showgrid = FALSE
+    ),
+    legend = list(
+      title = list(text = "Category"),
+      font = list(size = 12),
+      orientation = "v",
+      x = 1.1,
+      y = 0.5,
+      xanchor = "left"
+    ),
+    plot_bgcolor = "#FFFFFF",
+    paper_bgcolor = "#FFFFFF"
+  )
+
+# Updating legend labels after plot creation
+
+p <- p %>% layout(
+  legend = list(
+    title = list(text = "Category"),
+    font = list(size = 12),
+    orientation = "v",
+    x = 1.1,
+    y = 0.5,
+    xanchor = "left",
+    traceorder = "normal",
+    itemsizing = "constant",
+    labels = list(
+      "0" = "Blood Donor",
+      "1" = "Suspect Blood Donor",
+      "2" = "Hepatitis",
+      "3" = "Fibrosis",
+      "4" = "Cirrhosis"
+    )
+  )
+)
+
+# Displaying the plot
+p
+
+```
+```{r}
+#| label: label-me-4
+
+```
 
