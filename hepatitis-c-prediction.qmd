@@ -149,7 +149,7 @@ p
 
 ```
 
-### Classification Analysis for the dataset Hepatitis-C
+### Classification Analysis for the dataset Hepatitis-C - Logistic Regression
 
 ```{r}
 # Install and load required libraries
@@ -424,6 +424,8 @@ ggplot(as.data.frame(pca_data), aes(x = PC1, y = PC2, color = as.factor(gmm_mode
   )
 
 ```
+
+
 ```{r}
 #| label: label-me-5
 
@@ -486,9 +488,95 @@ cat("Average Silhouette Score:", round(avg_silhouette, 2), "\n")
 
 
 ```
+
 ```{r}
 # Scale the original dataset
 scaled_original_data <- scale(hepatitis_data)  # Replace 'original_data' with your dataset variable
 
+### Classification Analysis for the dataset Hepatitis-C - SVM
+```
+
+
+```{r}
+
+# Install and load required libraries
+if (!requireNamespace("e1071", quietly = TRUE)) {
+  install.packages("e1071")
+}
+if (!requireNamespace("caret", quietly = TRUE)) {
+  install.packages("caret")
+}
+if (!requireNamespace("dplyr", quietly = TRUE)) {
+  install.packages("dplyr")
+}
+library(e1071)
+library(caret)
+library(dplyr)
+
+# Load the dataset
+hepatitis <- read.csv("HepatitisC_Cleaned.csv")
+
+# Preprocessing
+# Encode 'Sex' as a factor
+hepatitis$Sex <- as.factor(hepatitis$Sex)
+
+# Convert 'Category' to a factor for multi-class classification
+hepatitis$Category <- as.factor(hepatitis$Category)
+
+# Split the data into training and testing sets
+set.seed(123)  # For reproducibility
+trainIndex <- createDataPartition(hepatitis$Category, p = 0.8, list = FALSE)
+trainData <- hepatitis[trainIndex, ]
+testData <- hepatitis[-trainIndex, ]
+
+# Identify numeric features
+numeric_features <- names(which(sapply(trainData, is.numeric)))
+
+# Scale numeric features
+scaled_train <- trainData
+scaled_test <- testData
+
+for (col in numeric_features) {
+  # Get scaling parameters from the training set
+  col_mean <- mean(trainData[[col]], na.rm = TRUE)
+  col_sd <- sd(trainData[[col]], na.rm = TRUE)
+  
+  # Scale training and test data
+  scaled_train[[col]] <- (trainData[[col]] - col_mean) / col_sd
+  scaled_test[[col]] <- (testData[[col]] - col_mean) / col_sd
+}
+
+# Train the SVM model with a radial basis function kernel
+svm_model <- svm(Category ~ ., data = scaled_train, kernel = "radial", cost = 1, gamma = 0.1)
+
+# Predict on the test set
+svm_predictions <- predict(svm_model, newdata = scaled_test)
+
+# Evaluate the model
+conf_matrix <- confusionMatrix(svm_predictions, scaled_test$Category)
+print("Confusion Matrix for SVM:")
+print(conf_matrix)
+
+# Install and load the GGally package if not already installed
+if (!requireNamespace("GGally", quietly = TRUE)) {
+  install.packages("GGally")
+}
+library(GGally)
+
+# Specify the features to include in the plot
+selected_features <- c("Age", "ALB", "ALP", "ALT", "AST", "BIL")
+
+# Filter the dataset for specific categories
+filtered_data <- scaled_train %>%
+  filter(Category %in% c("1=Hepatitis", "2=Fibrosis", "3=Cirrhosis"))  # Assuming "1" = Hepatitis, "2" = Fibrosis, "3" = Cirrhosis
+
+# Parallel coordinates plot for selected features and categories
+ggparcoord(data = filtered_data,
+           columns = which(names(filtered_data) %in% selected_features),
+           groupColumn = "Category",
+           scale = "std", alphaLines = 0.5) +
+  labs(title = "Parallel Coordinates Plot for Hepatitis, Fibrosis, and Cirrhosis",
+       x = "Features", y = "Scaled Values") +
+  theme_minimal(base_size = 14)
 ```
 
