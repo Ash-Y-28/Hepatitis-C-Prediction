@@ -30,7 +30,10 @@ pacman::p_load(tidyverse,
                mclust, 
                factoextra, 
                cluster, 
-               dbscan) 
+               dbscan,
+               arules,
+               arulesViz
+               )
 
 ```
 
@@ -152,6 +155,7 @@ p
 ### Classification Analysis for the dataset Hepatitis-C - Logistic Regression
 
 ```{r}
+#| label: label-me-4
 # Install and load required libraries
 if (!requireNamespace("caret", quietly = TRUE)) {
   install.packages("caret")
@@ -313,7 +317,7 @@ The model is better than random guessing and does a good job even with imbalance
 
 
 ```{r}
-library(ggplot2)
+#| label: label-me-5
 test_data$Predicted_Probabilities <- smote_predictions
 ggplot(test_data, aes(x = Predicted_Probabilities, fill = BinaryCategory)) +
   geom_density(alpha = 0.5) +
@@ -325,6 +329,7 @@ ggplot(test_data, aes(x = Predicted_Probabilities, fill = BinaryCategory)) +
 ```
 
 ```{r}
+#| label: label-me-6
 coef_df <- as.data.frame(summary(smote_logistic_model)$coefficients)
 coef_df <- coef_df[-1, ]  # Exclude intercept
 coef_df$Feature <- rownames(coef_df)
@@ -338,6 +343,7 @@ ggplot(coef_df, aes(x = reorder(Feature, abs(Estimate)), y = Estimate)) +
 ```
 
 ```{r}
+#| label: label-me-7
 ggplot(smote_data, aes(x = ALT, y = AST, color = BinaryCategory)) +
   geom_point() +
   stat_smooth(method = "glm", method.args = list(family = "binomial"), se = FALSE) +
@@ -351,7 +357,7 @@ ggplot(smote_data, aes(x = ALT, y = AST, color = BinaryCategory)) +
 ### GMM Clustering 
 
 ```{r}
-
+#| label: label-me-8
 # Step 1: Load the dataset
 # Assuming the data has been preprocessed (scaled, PCA applied, and features weighted)
 hepatitis_data <- read.csv("HepatitisC_Cleaned.csv")
@@ -409,8 +415,8 @@ ggplot(as.data.frame(pca_data), aes(x = PC1, y = PC2, color = as.factor(gmm_mode
   labs(
     title = "Gaussian Mixture Model Clustering",
     subtitle = "Principal Components and Identified Groups",
-    x = "Principal Component 1 (Explains 33.3% Variance)",
-    y = "Principal Component 2 (Explains 20.5% Variance)"
+    x = "Principal Component 1",
+    y = "Principal Component 2"
   ) +
   theme_minimal(base_size = 15) +
   theme(
@@ -419,43 +425,62 @@ ggplot(as.data.frame(pca_data), aes(x = PC1, y = PC2, color = as.factor(gmm_mode
     legend.position = "right",
     legend.title = element_text(face = "bold"),
     legend.text = element_text(size = 10), 
-    axis.title.x = element_text(size = 9), 
-    axis.title.y = element_text(size = 9)
+    axis.title.x = element_text(size = 10), 
+    axis.title.y = element_text(size = 10)
   )
 
 ```
 
 
 ```{r}
-#| label: label-me-5
+#| label: label-me-9
 
 # Scale the data
 scaled_data <- scale(pca_data)
 
-# k-NN Distance Plot
-kNNdist <- kNNdistplot(scaled_data, k = 5)  # k = minPts (adjust based on data)
-abline(h = 1, col = "red", lty = 2)  # Adjust the threshold manually
+# Calculate the k-NN distances
+kNN <- kNNdist(scaled_data, k = 5)
+
+# Create a dataframe for plotting
+kNN_df <- data.frame(
+  Points = 1:length(kNN),
+  kNN_Distance = sort(kNN)
+)
+
+# Generate a ggplot-based k-NN Distance Plot
+ggplot(kNN_df, aes(x = Points, y = kNN_Distance)) +
+  geom_line(color = "black", size = 1) +
+  geom_hline(yintercept = 1, color = "red", linetype = "dashed", size = 1) +
+  labs(
+    title = "k-NN Distance Plot (k = 5)",
+    x = "Points Sorted by Distance",
+    y = "5-NN Distance"
+  ) +
+  annotate(
+    "text", x = nrow(kNN_df) * 0.8, y = 1.2, label = "eps = 1",
+    color = "red", fontface = "italic", size = 3
+  ) +
+  theme_minimal(base_size = 15) +
+  theme(
+    plot.title = element_text(hjust = 0.5),
+    plot.subtitle = element_text(hjust = 0.5),
+    axis.title = element_text(size = 14),
+    axis.text = element_text(size = 10),
+    legend.position = "none"
+  )
 
 # Apply DBSCAN with eps = 1.0 and minPts = 5 (rule of thumb: dimensions + 1)
 dbscan_model <- dbscan(scaled_data, eps = 1, minPts = 5)
 
-# Print cluster assignments
-cat("Cluster Assignments:\n")
-table(dbscan_model$cluster)
+# Calculate cluster sizes 
+cluster_sizes <- table(dbscan_model$cluster)
 
 # Calculate the percentage of noise
 noise_percentage <- sum(dbscan_model$cluster == 0) / nrow(scaled_data) * 100
-cat("Noise Percentage:", round(noise_percentage, 2), "%\n")
 
 # Compute silhouette scores
 silhouette_scores <- silhouette(dbscan_model$cluster, dist(scaled_data))
 avg_silhouette <- mean(silhouette_scores[, 3])
-
-# Print average silhouette score
-cat("Average Silhouette Score (DBSCAN):", round(avg_silhouette, 2), "\n")
-
-cat("Cluster Sizes:\n")
-table(dbscan_model$cluster)
 
 # Visualize DBSCAN clusters
 ggplot(as.data.frame(pca_data), aes(x = PC1, y = PC2, color = as.factor(dbscan_model$cluster))) +
@@ -466,47 +491,47 @@ ggplot(as.data.frame(pca_data), aes(x = PC1, y = PC2, color = as.factor(dbscan_m
     labels = c("Noise", "Cluster 1", "Cluster 2", "Cluster 3", "Cluster 4")
   ) +
   labs(
-    title = "DBSCAN Clustering Results with eps = 1.0",
+    title = "DBSCAN Clustering Results",
     x = "Principal Component 1",
-    y = "Principal Component 2",
-    caption = "Noise is represented by Cluster 0"
+    y = "Principal Component 2"
   ) +
   theme_minimal(base_size = 15) +
   theme(
-    plot.title = element_text(hjust = 0.5, face = "bold"),
-    plot.subtitle = element_text(hjust = 0.5),
+    plot.title = element_text(hjust = 0.5),
     legend.position = "right",
-    legend.title = element_text(face = "bold"),
-    legend.text = element_text(size = 12)
+    legend.text = element_text(size = 10), 
+    axis.title.x = element_text(size = 10), 
+    axis.title.y = element_text(size = 10)
   )
 
 cat("DBSCAN Results Summary:\n")
 cat("Number of Clusters:", length(unique(dbscan_model$cluster)) - 1, "\n")  # Exclude noise cluster
 cat("Noise Percentage:", round(noise_percentage, 2), "%\n")
 cat("Average Silhouette Score:", round(avg_silhouette, 2), "\n")
-
+cat("\nAdditional Insights:\n")
+cat("- Noise (Cluster 0) contains", cluster_sizes[1], "points.\n")
+cat("- Largest cluster size:", max(cluster_sizes[-1]), "points (excluding noise).\n")
+cat("- Smallest cluster size:", min(cluster_sizes[-1]), "points (excluding noise).\n")
 
 
 ```
 
-```{r}
-# Scale the original dataset
-scaled_original_data <- scale(hepatitis_data)  # Replace 'original_data' with your dataset variable
-
-```
 
 ### Classification Analysis for the dataset Hepatitis-C - SVM
 
 ```{r}
-
+#| label: label-me-10
 # Install and load required libraries
-if (!requireNamespace("e1071", quietly = TRUE)) {
+if (!requireNamespace("e1071", 
+                      quietly = TRUE)) {
   install.packages("e1071")
 }
-if (!requireNamespace("caret", quietly = TRUE)) {
+if (!requireNamespace("caret", 
+                      quietly = TRUE)) {
   install.packages("caret")
 }
-if (!requireNamespace("dplyr", quietly = TRUE)) {
+if (!requireNamespace("dplyr",
+                      quietly = TRUE)) {
   install.packages("dplyr")
 }
 library(e1071)
@@ -579,4 +604,323 @@ ggparcoord(data = filtered_data,
        x = "Features", y = "Scaled Values") +
   theme_minimal(base_size = 14)
 ```
+### Association rule using Apriori Algorithm
+```{r }
+
+# 1. Data Preparation
+hepatitis_categorized <- hepatitis %>%
+  mutate(
+    Age_Group = case_when(
+      Age < 35 ~ "Young",
+      Age < 50 ~ "Middle",
+      Age < 65 ~ "Senior",
+      TRUE ~ "Elderly"
+    ),
+    ALT_Level = case_when(
+      ALT < 40 ~ "Normal",
+      ALT < 80 ~ "Mild_Elevation",
+      ALT < 200 ~ "Moderate_Elevation",
+      TRUE ~ "Severe_Elevation"
+    ),
+    AST_Level = case_when(
+      AST < 40 ~ "Normal",
+      AST < 80 ~ "Mild_Elevation",
+      AST < 200 ~ "Moderate_Elevation",
+      TRUE ~ "Severe_Elevation"
+    ),
+    Disease_Status = case_when(
+      Category == 0 ~ "Blood_Donor",
+      Category == 1 ~ "Suspect",
+      Category == 2 ~ "Hepatitis",
+      Category == 3 ~ "Fibrosis",
+      Category == 4 ~ "Cirrhosis"
+    )
+  )
+
+# 2. Create transactions
+hepatitis_trans <-
+  as(data.frame(select(hepatitis_categorized, 
+    Age_Group, ALT_Level, AST_Level, Disease_Status)), 
+    "transactions")
+
+# 3. Apply Apriori algorithm
+rules <- apriori(hepatitis_trans,
+    parameter = list(
+        support = 0.03,
+        confidence = 0.5,
+        minlen = 2,
+        maxlen = 4
+    ))
+
+# 4. Process rules
+rules_pruned <- 
+  rules[!is.redundant(rules)]
+rules_sorted <- 
+  sort(rules_pruned, by = "lift", decreasing = TRUE)
+
+# 5. Create rules dataframe
+rules_df <- data.frame(
+    lhs = labels(lhs(rules_sorted)),
+    rhs = labels(rhs(rules_sorted)),
+    support = quality(rules_sorted)$support,
+    confidence = quality(rules_sorted)$confidence,
+    lift = quality(rules_sorted)$lift
+)
+
+# 6. Visualization
+# Scatter Plot
+scatter_plot <- plot_ly(rules_df, 
+        x = ~support,
+        y = ~confidence,
+        color = ~lift,
+        type = "scatter",
+        mode = "markers",
+        marker = list(size = 10),
+        text = ~paste("Rule:", lhs, "=>", rhs)) %>%
+    layout(
+        title = "Apriori Algorithm",
+        xaxis = list(title = "Support"),
+        yaxis = list(title = "Confidence"),
+        colorbar = list(title = "Lift")
+    )
+
+
+
+# 7. Print Quality Assessment
+cat("\nAssociation Rule Analysis Summary:")
+cat("\nNumber of Rules:", nrow(rules_df))
+cat("\nAverage Confidence (Accuracy):", round(mean(rules_df$confidence), 4))
+cat("\nAverage Lift:", round(mean(rules_df$lift), 4))
+cat("\nAverage Support:", round(mean(rules_df$support), 4))
+
+# Print top 10 rules
+cat("\n\nTop 10 Rules by Lift:\n")
+head(rules_df[order(-rules_df$lift), 
+              c("lhs", "rhs", "support", "confidence", "lift")], 10)
+
+# Display plots
+scatter_plot
+
+
+
+```
+### CHARM Algorithm 
+```{r}
+#| label: label-me-11
+# Load required libraries
+library(tidyverse)
+library(arules)
+library(arulesViz)
+library(plotly)
+
+# 1. Data Preprocessing
+hepatitis_categorized <- hepatitis %>%
+  mutate(
+    Age_Group = case_when(
+      Age < 35 ~ "Young",
+      Age < 50 ~ "Middle",
+      Age < 65 ~ "Senior",
+      TRUE ~ "Elderly"
+    ),
+    ALT_Level = case_when(
+      ALT < 40 ~ "ALT_Normal",
+      ALT < 80 ~ "ALT_Mild_Elevation",
+      ALT < 200 ~ "ALT_Moderate_Elevation",
+      TRUE ~ "ALT_Severe_Elevation"
+    ),
+    AST_Level = case_when(
+      AST < 40 ~ " AST_Normal",
+      AST < 80 ~ " AST_Mild_Elevation",
+      AST < 200 ~ " AST_Moderate_Elevation",
+      TRUE ~ " AST_Severe_Elevation"
+    ),
+    Disease_Status = case_when(
+      Category == 0 ~ "Blood_Donor",
+      Category == 1 ~ "Suspect",
+      Category == 2 ~ "Hepatitis",
+      Category == 3 ~ "Fibrosis",
+      Category == 4 ~ "Cirrhosis"
+    )
+  )
+
+# 2. CHARM Implementation
+charm_association_rules <- function(data, min_support = 0.05, min_confidence = 0.5) {
+    # Convert to transaction format
+    trans_matrix <- as.matrix(data)
+    n_trans <- nrow(trans_matrix)
+    
+    # Find unique items
+    items <- unique(as.character(trans_matrix))
+    cat("Initial items:", length(items), "\n")
+    
+    # Create vertical database (tid-lists)
+    tid_lists <- list()
+    frequent_items <- character()
+    
+    # Find frequent single items
+    for(item in items) {
+        tids <- which(apply(trans_matrix, 1, function(x) item %in% x))
+        support <- length(tids)/n_trans
+        if(support >= min_support) {
+            tid_lists[[item]] <- tids
+            frequent_items <- c(frequent_items, item)
+        }
+    }
+    
+    cat("Frequent items:", length(frequent_items), "\n")
+    
+    # Store closed itemsets
+    closed_itemsets <- list()
+    
+    # Find closed itemsets
+    find_closed_itemsets <- function(prefix = character(), prefix_tids = NULL, 
+                                   remaining_items = frequent_items) {
+        for(i in seq_along(remaining_items)) {
+            item <- remaining_items[i]
+            new_tids <- if(is.null(prefix_tids)) tid_lists[[item]]
+                       else intersect(prefix_tids, tid_lists[[item]])
+            
+            support <- length(new_tids)/n_trans
+            
+            if(support >= min_support) {
+                new_itemset <- c(prefix, item)
+                
+                # Check if closed
+                is_closed <- TRUE
+                for(existing in names(closed_itemsets)) {
+                    if(all(new_itemset %in% strsplit(existing, ",")[[1]]) && 
+                       closed_itemsets[[existing]]$support == support) {
+                        is_closed <- FALSE
+                        break
+                    }
+                }
+                
+                if(is_closed) {
+                    closed_itemsets[[paste(new_itemset, collapse=",")]] <<- list(
+                        items = new_itemset,
+                        support = support,
+                        tids = new_tids
+                    )
+                }
+                
+                # Recursive call with remaining items
+                if(i < length(remaining_items)) {
+                    find_closed_itemsets(new_itemset, new_tids, 
+                                       remaining_items[(i+1):length(remaining_items)])
+                }
+            }
+        }
+    }
+    
+    # Generate closed itemsets
+    cat("Generating closed itemsets...\n")
+    find_closed_itemsets()
+    cat("Found", length(closed_itemsets), "closed itemsets\n")
+    
+    # Generate rules from closed itemsets
+    rules <- data.frame(
+        lhs = character(),
+        rhs = character(),
+        support = numeric(),
+        confidence = numeric(),
+        lift = numeric(),
+        stringsAsFactors = FALSE
+    )
+    
+    # Generate rules
+    cat("Generating association rules...\n")
+    for(itemset_key in names(closed_itemsets)) {
+        itemset <- closed_itemsets[[itemset_key]]
+        if(length(itemset$items) >= 2) {
+            for(i in 1:(length(itemset$items)-1)) {
+                combs <- combn(itemset$items, i, simplify = FALSE)
+                for(lhs in combs) {
+                    rhs <- setdiff(itemset$items, lhs)
+                    
+                    # Calculate confidence
+                    lhs_support <- max(sapply(names(closed_itemsets), function(key) {
+                        if(all(lhs %in% closed_itemsets[[key]]$items))
+                            return(closed_itemsets[[key]]$support)
+                        return(0)
+                    }))
+                    
+                    if(lhs_support > 0) {
+                        confidence <- itemset$support / lhs_support
+                        
+                        if(confidence >= min_confidence) {
+                            # Calculate lift
+                            rhs_support <- max(sapply(names(closed_itemsets), function(key) {
+                                if(all(rhs %in% closed_itemsets[[key]]$items))
+                                    return(closed_itemsets[[key]]$support)
+                                return(0)
+                            }))
+                            
+                            lift <- confidence / rhs_support
+                            
+                            rules[nrow(rules) + 1,] <- list(
+                                lhs = paste(lhs, collapse=", "),
+                                rhs = paste(rhs, collapse=", "),
+                                support = itemset$support,
+                                confidence = confidence,
+                                lift = lift
+                            )
+                        }
+                    }
+                }
+            }
+        }
+    }
+    
+    return(rules)
+}
+
+# 3. Apply CHARM to dataset
+selected_data <- select(hepatitis_categorized, 
+                       Age_Group, ALT_Level, AST_Level, Disease_Status)
+rules <- charm_association_rules(selected_data, min_support = 0.05, min_confidence = 0.5)
+
+# 4. Visualize results
+if(nrow(rules) > 0) {
+    # Scatter plot
+    scatter_plot <- plot_ly(rules,
+        x = ~confidence,
+        y = ~lift,
+        color = ~support,
+        type = "scatter",
+        mode = "markers",
+        text = ~paste("Rule:", lhs, "=>", rhs,
+                     "<br>Support:", round(support, 4),
+                     "<br>Confidence:", round(confidence, 4),
+                     "<br>Lift:", round(lift, 4))
+    ) %>%
+        layout(
+            title = "CHARM Algotrithm",
+            xaxis = list(title = "Confidence"),
+            yaxis = list(title = "Lift"),
+            colorbar = list(title = "Support")
+        )
+    
+    # Print statistics
+    cat("\nAssociation Rule Analysis Results:\n")
+    cat("Total rules found:", nrow(rules), "\n")
+    cat("Average confidence:", round(mean(rules$confidence), 4), "\n")
+    cat("Average lift:", round(mean(rules$lift), 4), "\n")
+    cat("Average support:", round(mean(rules$support), 4), "\n")
+    
+    # Print top rules
+    cat("\nTop 10 Rules by Lift:\n")
+    print(head(rules[order(-rules$lift), ], 10))
+    
+    # Save results
+    write.csv(rules, "charm_rules.csv", row.names = FALSE)
+} else {
+    cat("No rules found. Try adjusting the minimum support or confidence thresholds.\n")
+}
+
+    # Display plot
+  scatter_plot
+```
+
+
+
 
