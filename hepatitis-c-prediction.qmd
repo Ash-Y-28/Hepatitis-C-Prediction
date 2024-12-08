@@ -493,9 +493,9 @@ cat("Average Silhouette Score:", round(avg_silhouette, 2), "\n")
 # Scale the original dataset
 scaled_original_data <- scale(hepatitis_data)  # Replace 'original_data' with your dataset variable
 
-### Classification Analysis for the dataset Hepatitis-C - SVM
 ```
 
+### Classification Analysis for the dataset Hepatitis-C - SVM
 
 ```{r}
 
