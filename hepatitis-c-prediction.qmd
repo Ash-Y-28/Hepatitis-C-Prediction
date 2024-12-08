@@ -20,8 +20,14 @@ pacman::p_load(tidyverse,
                scales, 
                devtools,
                here,
-               plotly, 
-               class) 
+               class, 
+               plotly,
+               dplyr,
+               caret,
+               BiocManager,
+               smotefamily,
+               pROC) 
+
 ```
 
 
@@ -41,6 +47,8 @@ hepatitis <- hepatitis %>%
 
 # Verifying that all NA values have been handled
 colSums(is.na(hepatitis))
+
+write.csv(hepatitis, "HepatitisC_Cleaned.csv", row.names = FALSE)
 ```
 
 
@@ -136,8 +144,165 @@ p <- p %>% layout(
 p
 
 ```
+
+### Classification Analysis for the dataset Hepatitis-C
+
 ```{r}
-#| label: label-me-4
+# Install and load required libraries
+if (!requireNamespace("caret", quietly = TRUE)) {
+  install.packages("caret")
+}
+if (!requireNamespace("themis", quietly = TRUE)) {
+  install.packages("themis")
+}
+if (!requireNamespace("recipes", quietly = TRUE)) {
+  install.packages("recipes")
+}
+if (!requireNamespace("pROC", quietly = TRUE)) {
+  install.packages("pROC")
+}
+
+library(caret)
+library(themis)
+library(recipes)
+library(pROC)
+
+# Load the dataset
+hepatitis <- read.csv("HepatitisC_Cleaned.csv")
+
+# Convert 'Category' into a binary variable (e.g., "Blood Donor" vs. others)
+hepatitis <- hepatitis %>%
+  mutate(BinaryCategory = ifelse(Category == "0=Blood Donor", 1, 0))
+
+# Encode 'Sex' as a numeric variable (e.g., "m" -> 1, "f" -> 0)
+hepatitis <- hepatitis %>%
+  mutate(Sex = ifelse(Sex == "m", 1, 0))
+
+# Exclude unnecessary columns
+hepatitis <- hepatitis %>%
+  select(-...1, -Category)  # Remove index and original 'Category'
+
+# Ensure the target variable is a factor
+hepatitis$BinaryCategory <- as.factor(hepatitis$BinaryCategory)
+
+# Split the dataset into training and testing sets
+set.seed(123)  # For reproducibility
+train_index <- createDataPartition(hepatitis$BinaryCategory, p = 0.8, list = FALSE)
+train_data <- hepatitis[train_index, ]
+test_data <- hepatitis[-train_index, ]
+
+# Create a recipe for SMOTE
+smote_recipe <- recipe(BinaryCategory ~ ., data = train_data) %>%
+  step_smote(BinaryCategory, over_ratio = 1)  # Balance classes to a 1:1 ratio
+
+# Prepare the SMOTE dataset
+smote_data <- prep(smote_recipe) %>%
+  bake(new_data = NULL)
+
+# Check the class distribution after SMOTE
+print("Class distribution after applying SMOTE:")
+print(table(smote_data$BinaryCategory))
+
+# Train logistic regression on the SMOTE-balanced dataset
+smote_logistic_model <- glm(BinaryCategory ~ ., data = smote_data, family = "binomial")
+
+# Summarize the model
+print("Logistic Regression Model Summary:")
+print(summary(smote_logistic_model))
+
+# Predict on the test set
+smote_predictions <- predict(smote_logistic_model, newdata = test_data, type = "response")
+
+# Convert probabilities to class labels (threshold = 0.5)
+smote_predicted_classes <- ifelse(smote_predictions > 0.5, 1, 0)
+
+# Evaluate the model
+smote_confusion_matrix <- confusionMatrix(as.factor(smote_predicted_classes), as.factor(test_data$BinaryCategory))
+print("Confusion Matrix after applying SMOTE:")
+print(smote_confusion_matrix)
+
+# Plot ROC curve for the SMOTE model
+smote_roc_curve <- roc(as.numeric(test_data$BinaryCategory), smote_predictions)
+plot(smote_roc_curve, col = "red", main = "ROC Curve for Logistic Regression (SMOTE)")
 
 ```
+### Interpretation of the classification - Logistic Regression
 
+Understanding important terms before proceeding...
+
+What is SMOTE? Tried to keep it as easy as possible...
+
+Imagine you're teaching a class where there are 90 boys and only 10 girls, and you're trying to predict something about them (e.g., who will pass an exam). Since there are so many more boys than girls, most of your predictions might focus on boys, and you’d struggle to give fair attention to the girls. This is called class imbalance.
+
+SMOTE is like a clever trick to "even the playing field." It helps balance the boys and girls (or majority and minority groups in your data) by creating new, synthetic data points for the smaller group (girls, in this case) instead of just copying the existing ones.
+
+How Does SMOTE Work? (Super Simple Example)
+Original Situation:
+
+You have 10 girls (minority group).
+Instead of just copying the same girls, SMOTE creates "new girls" based on the ones you already have. These aren't exact copies but are slightly adjusted versions that look realistic.
+
+How It Creates New Data:
+
+Imagine you know two girls, Alice and Bella, who both scored well on the last test.
+SMOTE "imagines" a new girl, "Cathy," whose score is somewhere between Alice's and Bella's scores. Cathy is not real but synthetic and helps give the smaller group more representation.
+Result After SMOTE:
+
+Now, instead of 90 boys and 10 girls, you might have 90 boys and 50 girls (original 10 plus 40 synthetic girls). This balanced data gives your model a fair chance to learn about both groups.
+
+Sensitivity: How well you catch actual threats (e.g., detecting weapons).
+High sensitivity means you don’t miss any weapons.
+
+Specificity: How well you avoid stopping harmless people (e.g., avoiding false alarms for innocent passengers).
+High specificity means you don’t wrongly suspect harmless people.
+
+What Does This Visualization Show?
+This is a ROC Curve (Receiver Operating Characteristic Curve). It’s a graph that helps us understand how well our model is doing at separating two groups:
+
+
+Blood Donors (Positive Class: 1)
+Non-Donors (Negative Class: 0)
+The red curve represents the performance of the model. It shows how good the model is at balancing two things:
+
+Sensitivity (True Positives): How many "Blood Donors" the model correctly identifies.
+Specificity (True Negatives): How many "Non-Donors" the model correctly identifies.
+The diagonal gray line is a "coin toss" or random guess. If the red curve were close to this line, the model would be as good as random guessing.
+
+What Question Does This Visualization Answer?
+"How well can this model distinguish between Blood Donors and Non-Donors?"
+It shows how accurately the model predicts who is a donor and who is not, across all possible thresholds (cut-off points for deciding whether someone is classified as a donor).
+
+How to Interpret This Curve in Simple Terms
+The red curve is very close to the top-left corner.
+
+Top-left corner means perfect performance: it catches all donors without falsely labeling "Non-Donors" as donors.
+Our model does an excellent job of separating the two groups.
+The steep rise near the beginning tells us:
+
+The model identifies most "Blood Donors" (Sensitivity is high) with very few mistakes early on.
+High specificity and balanced accuracy:
+
+The flat section at the top shows the model continues to correctly classify "Non-Donors" even as it adjusts thresholds.
+Overall, this curve shows the model is doing much better than guessing (red curve far above the diagonal line).
+
+
+Why Is This Important?
+
+This visualization helps answer:
+
+"How reliable is this model?"
+The red curve being far from the gray line means the model is reliable.
+
+"Does the model handle Blood Donors (minority class) well?"
+Yes, because the curve rises steeply, showing it catches "Blood Donors" early and accurately.
+
+"Should we trust the model’s predictions?"
+
+Yes, because the curve indicates that the model balances errors well between identifying donors and non-donors.
+
+
+This graph tells us:
+
+The model can distinguish between donors and non-donors accurately.
+It catches most donors (87.5%) while making very few mistakes.
+The model is better than random guessing and does a good job even with imbalanced data, thanks to SMOTE.
