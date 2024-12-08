@@ -29,7 +29,8 @@ pacman::p_load(tidyverse,
                pROC, 
                mclust, 
                factoextra, 
-               cluster) 
+               cluster, 
+               dbscan) 
 
 ```
 
@@ -421,6 +422,73 @@ ggplot(as.data.frame(pca_data), aes(x = PC1, y = PC2, color = as.factor(gmm_mode
     axis.title.x = element_text(size = 9), 
     axis.title.y = element_text(size = 9)
   )
+
+```
+```{r}
+#| label: label-me-5
+
+# Scale the data
+scaled_data <- scale(pca_data)
+
+# k-NN Distance Plot
+kNNdist <- kNNdistplot(scaled_data, k = 5)  # k = minPts (adjust based on data)
+abline(h = 1, col = "red", lty = 2)  # Adjust the threshold manually
+
+# Apply DBSCAN with eps = 1.0 and minPts = 5 (rule of thumb: dimensions + 1)
+dbscan_model <- dbscan(scaled_data, eps = 1, minPts = 5)
+
+# Print cluster assignments
+cat("Cluster Assignments:\n")
+table(dbscan_model$cluster)
+
+# Calculate the percentage of noise
+noise_percentage <- sum(dbscan_model$cluster == 0) / nrow(scaled_data) * 100
+cat("Noise Percentage:", round(noise_percentage, 2), "%\n")
+
+# Compute silhouette scores
+silhouette_scores <- silhouette(dbscan_model$cluster, dist(scaled_data))
+avg_silhouette <- mean(silhouette_scores[, 3])
+
+# Print average silhouette score
+cat("Average Silhouette Score (DBSCAN):", round(avg_silhouette, 2), "\n")
+
+cat("Cluster Sizes:\n")
+table(dbscan_model$cluster)
+
+# Visualize DBSCAN clusters
+ggplot(as.data.frame(pca_data), aes(x = PC1, y = PC2, color = as.factor(dbscan_model$cluster))) +
+  geom_point(size = 3, alpha = 0.7) +
+  scale_color_manual(
+    values = c("#999999", "#E41A1C", "#377EB8", "#4DAF4A", "#FF7F00"),
+    name = "Cluster",
+    labels = c("Noise", "Cluster 1", "Cluster 2", "Cluster 3", "Cluster 4")
+  ) +
+  labs(
+    title = "DBSCAN Clustering Results with eps = 1.0",
+    x = "Principal Component 1",
+    y = "Principal Component 2",
+    caption = "Noise is represented by Cluster 0"
+  ) +
+  theme_minimal(base_size = 15) +
+  theme(
+    plot.title = element_text(hjust = 0.5, face = "bold"),
+    plot.subtitle = element_text(hjust = 0.5),
+    legend.position = "right",
+    legend.title = element_text(face = "bold"),
+    legend.text = element_text(size = 12)
+  )
+
+cat("DBSCAN Results Summary:\n")
+cat("Number of Clusters:", length(unique(dbscan_model$cluster)) - 1, "\n")  # Exclude noise cluster
+cat("Noise Percentage:", round(noise_percentage, 2), "%\n")
+cat("Average Silhouette Score:", round(avg_silhouette, 2), "\n")
+
+
+
+```
+```{r}
+# Scale the original dataset
+scaled_original_data <- scale(hepatitis_data)  # Replace 'original_data' with your dataset variable
 
 ```
 
