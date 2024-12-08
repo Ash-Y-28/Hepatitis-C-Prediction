@@ -30,7 +30,9 @@ pacman::p_load(tidyverse,
                mclust, 
                factoextra, 
                cluster, 
-               dbscan) 
+               dbscan,
+               arules,
+               arulesViz)
 
 ```
 
@@ -489,12 +491,7 @@ cat("Average Silhouette Score:", round(avg_silhouette, 2), "\n")
 
 ```
 
-```{r}
-# Scale the original dataset
-scaled_original_data <- scale(hepatitis_data)  # Replace 'original_data' with your dataset variable
 
-### Classification Analysis for the dataset Hepatitis-C - SVM
-```
 
 
 ```{r}
@@ -579,4 +576,84 @@ ggparcoord(data = filtered_data,
        x = "Features", y = "Scaled Values") +
   theme_minimal(base_size = 14)
 ```
+### Association rule using Apriori Algorithm
+```{r }
+
+# 1. Data Preparation
+hepatitis_categorized <- hepatitis %>%
+  mutate(
+    Age_Group = case_when(
+      Age < 35 ~ "Young",
+      Age < 50 ~ "Middle",
+      Age < 65 ~ "Senior",
+      TRUE ~ "Elderly"
+    ),
+    ALT_Level = case_when(
+      ALT < 40 ~ "Normal",
+      ALT < 80 ~ "Mild_Elevation",
+      ALT < 200 ~ "Moderate_Elevation",
+      TRUE ~ "Severe_Elevation"
+    ),
+    AST_Level = case_when(
+      AST < 40 ~ "Normal",
+      AST < 80 ~ "Mild_Elevation",
+      AST < 200 ~ "Moderate_Elevation",
+      TRUE ~ "Severe_Elevation"
+    ),
+    Disease_Status = case_when(
+      Category == 0 ~ "Blood_Donor",
+      Category == 1 ~ "Suspect",
+      Category == 2 ~ "Hepatitis",
+      Category == 3 ~ "Fibrosis",
+      Category == 4 ~ "Cirrhosis"
+    )
+  )
+
+# 2. Create transactions
+hepatitis_trans <- as(data.frame(select(hepatitis_categorized, 
+    Age_Group, ALT_Level, AST_Level, Disease_Status)), 
+    "transactions")
+
+# 3. Apply Apriori algorithm
+rules <- apriori(hepatitis_trans,
+    parameter = list(
+        support = 0.03,
+        confidence = 0.5,
+        minlen = 2,
+        maxlen = 4
+    ))
+
+# 4. Process rules
+rules_pruned <- rules[!is.redundant(rules)]
+rules_sorted <- sort(rules_pruned, by = "lift", decreasing = TRUE)
+
+# 5. Create rules dataframe
+rules_df <- data.frame(
+    lhs = labels(lhs(rules_sorted)),
+    rhs = labels(rhs(rules_sorted)),
+    support = quality(rules_sorted)$support,
+    confidence = quality(rules_sorted)$confidence,
+    lift = quality(rules_sorted)$lift
+)
+
+# Scatter Plot
+plot_ly(rules_df, 
+        x = ~support,
+        y = ~confidence,
+        color = ~lift,
+        type = "scatter",
+        mode = "markers",
+        marker = list(size = 10),
+        text = ~paste("Rule:", lhs, "=>", rhs)) %>%
+    layout(title = "Rule Quality Metrics")
+# 6. Print Quality Assessment
+    cat("\nNumber of Rules:", nrow(rules_df))
+    cat("\nAverage Confidence (Accuracy):", mean(rules_df$confidence))
+    cat("\nAverage Lift:", mean(rules_df$lift))
+    cat("\nAverage Support:", mean(rules_df$support))
+
+```
+
+
+
 
