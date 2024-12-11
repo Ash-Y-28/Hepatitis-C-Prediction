@@ -15,7 +15,6 @@ execute:
 if(!require(pacman)) 
   install.packages("pacman") 
 
-devtools::install_github("tidyverse/dsbox") 
 pacman::p_load(tidyverse, 
                scales, 
                devtools,
@@ -32,8 +31,12 @@ pacman::p_load(tidyverse,
                cluster, 
                dbscan,
                arules,
-               arulesViz
+               arulesViz,
+               themis,
+               recipes,
+               e1071
                )
+
 
 ```
 
@@ -156,24 +159,6 @@ p
 
 ```{r}
 #| label: label-me-4
-# Install and load required libraries
-if (!requireNamespace("caret", quietly = TRUE)) {
-  install.packages("caret")
-}
-if (!requireNamespace("themis", quietly = TRUE)) {
-  install.packages("themis")
-}
-if (!requireNamespace("recipes", quietly = TRUE)) {
-  install.packages("recipes")
-}
-if (!requireNamespace("pROC", quietly = TRUE)) {
-  install.packages("pROC")
-}
-
-library(caret)
-library(themis)
-library(recipes)
-library(pROC)
 
 # Load the dataset
 hepatitis <- read.csv("HepatitisC_Cleaned.csv")
@@ -381,22 +366,6 @@ cat("- Smallest cluster size:", min(cluster_sizes[-1]), "points (excluding noise
 
 ```{r}
 #| label: label-me-10
-# Install and load required libraries
-if (!requireNamespace("e1071", 
-                      quietly = TRUE)) {
-  install.packages("e1071")
-}
-if (!requireNamespace("caret", 
-                      quietly = TRUE)) {
-  install.packages("caret")
-}
-if (!requireNamespace("dplyr",
-                      quietly = TRUE)) {
-  install.packages("dplyr")
-}
-library(e1071)
-library(caret)
-library(dplyr)
 
 # Load the dataset
 hepatitis <- read.csv("HepatitisC_Cleaned.csv")
@@ -570,11 +539,6 @@ scatter_plot
 
 ```{r}
 #| label: label-me-11
-# Load required libraries
-library(tidyverse)
-library(arules)
-library(arulesViz)
-library(plotly)
 
 # 1. Data Preprocessing
 hepatitis_categorized <- hepatitis %>%
