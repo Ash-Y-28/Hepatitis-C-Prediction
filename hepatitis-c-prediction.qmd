@@ -34,7 +34,8 @@ pacman::p_load(tidyverse,
                arulesViz,
                themis,
                recipes,
-               e1071
+               e1071, 
+               GGally
                )
 
 
@@ -307,7 +308,7 @@ ggplot(as.data.frame(pca_data), aes(x = PC1, y = PC2, color = as.factor(gmm_mode
   )
 
 ```
-
+### DBSCAN Clustering
 
 ```{r}
 #| label: label-me-9
@@ -410,12 +411,6 @@ svm_predictions <- predict(svm_model, newdata = scaled_test)
 conf_matrix <- confusionMatrix(svm_predictions, scaled_test$Category)
 print("Confusion Matrix for SVM:")
 print(conf_matrix)
-
-# Install and load the GGally package if not already installed
-if (!requireNamespace("GGally", quietly = TRUE)) {
-  install.packages("GGally")
-}
-library(GGally)
 
 # Specify the features to include in the plot
 selected_features <- c("Age", "ALB", "ALP", "ALT", "AST", "BIL")
@@ -530,9 +525,6 @@ head(rules_df[order(-rules_df$lift),
 
 # Display plots
 scatter_plot
-
-
-
 ```
 
 ### CHARM Algorithm 
@@ -744,8 +736,8 @@ if(nrow(rules) > 0) {
     cat("No rules found. Try adjusting the minimum support or confidence thresholds.\n")
 }
 
-    # Display plot
-  scatter_plot
+# Display plot
+scatter_plot
 ```
 
 
