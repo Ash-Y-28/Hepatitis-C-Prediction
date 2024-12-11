@@ -292,16 +292,14 @@ ggplot(as.data.frame(pca_data), aes(x = PC1, y = PC2, color = as.factor(gmm_mode
                     labels = c("Cluster 1: Healthy/Low Risk", "Cluster 2: At-Risk/Diseased")) +
   labs(
     title = "Gaussian Mixture Model Clustering",
-    subtitle = "Principal Components and Identified Groups",
     x = "Principal Component 1",
     y = "Principal Component 2"
   ) +
   theme_minimal(base_size = 15) +
   theme(
-    plot.title = element_text(hjust = 0.5, face = "bold"),
+    plot.title = element_text(hjust = 0.5),
     plot.subtitle = element_text(hjust = 0.5),
     legend.position = "right",
-    legend.title = element_text(face = "bold"),
     legend.text = element_text(size = 10), 
     axis.title.x = element_text(size = 10), 
     axis.title.y = element_text(size = 10)
@@ -333,10 +331,9 @@ avg_silhouette <- mean(silhouette_scores[, 3])
 ggplot(as.data.frame(pca_data), aes(x = PC1, y = PC2, color = as.factor(dbscan_model$cluster))) +
   geom_point(size = 3, alpha = 0.7) +
   scale_color_manual(
-    values = c("#999999", "#E41A1C", "#377EB8", "#4DAF4A", "#FF7F00"),
+    values = c("#999999", "#4CAF50", "#FF5722"),
     name = "Cluster",
-    labels = c("Noise", "Cluster 1", "Cluster 2", "Cluster 3", "Cluster 4")
-  ) +
+    labels = c("Noise", "Cluster 1: Healthy/Low Risk", "Cluster 2: At-Risk/Diseased")) +
   labs(
     title = "DBSCAN Clustering Results",
     x = "Principal Component 1",
