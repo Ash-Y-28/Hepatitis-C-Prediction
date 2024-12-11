@@ -71,7 +71,7 @@ color_palette <- c("#440154FF", "#3B528BFF", "#21908CFF", "#5DC863FF", "#FDE725F
 # Creating an enhanced interactive scatterplot
 
 p <- plot_ly(
-  data = hepatitis,
+  data = hepatitis_data,
   x = ~AST, 
   y = ~ALT, 
   type = 'scatter', 
@@ -401,9 +401,6 @@ cluster_summary <- hepatitis_data %>%
   group_by(Cluster) %>%
   summarise(across(where(is.numeric), mean, na.rm = TRUE))
 
-# Display cluster summary
-print(cluster_summary)
-
 # Enhanced GMM Clustering Visualization with Labels
 ggplot(as.data.frame(pca_data), aes(x = PC1, y = PC2, color = as.factor(gmm_model$classification))) +
   geom_point(size = 3, alpha = 0.7) +  # Data points
@@ -437,37 +434,6 @@ ggplot(as.data.frame(pca_data), aes(x = PC1, y = PC2, color = as.factor(gmm_mode
 
 # Scale the data
 scaled_data <- scale(pca_data)
-
-# Calculate the k-NN distances
-kNN <- kNNdist(scaled_data, k = 5)
-
-# Create a dataframe for plotting
-kNN_df <- data.frame(
-  Points = 1:length(kNN),
-  kNN_Distance = sort(kNN)
-)
-
-# Generate a ggplot-based k-NN Distance Plot
-ggplot(kNN_df, aes(x = Points, y = kNN_Distance)) +
-  geom_line(color = "black", size = 1) +
-  geom_hline(yintercept = 1, color = "red", linetype = "dashed", size = 1) +
-  labs(
-    title = "k-NN Distance Plot (k = 5)",
-    x = "Points Sorted by Distance",
-    y = "5-NN Distance"
-  ) +
-  annotate(
-    "text", x = nrow(kNN_df) * 0.8, y = 1.2, label = "eps = 1",
-    color = "red", fontface = "italic", size = 3
-  ) +
-  theme_minimal(base_size = 15) +
-  theme(
-    plot.title = element_text(hjust = 0.5),
-    plot.subtitle = element_text(hjust = 0.5),
-    axis.title = element_text(size = 14),
-    axis.text = element_text(size = 10),
-    legend.position = "none"
-  )
 
 # Apply DBSCAN with eps = 1.0 and minPts = 5 (rule of thumb: dimensions + 1)
 dbscan_model <- dbscan(scaled_data, eps = 1, minPts = 5)
@@ -512,7 +478,6 @@ cat("\nAdditional Insights:\n")
 cat("- Noise (Cluster 0) contains", cluster_sizes[1], "points.\n")
 cat("- Largest cluster size:", max(cluster_sizes[-1]), "points (excluding noise).\n")
 cat("- Smallest cluster size:", min(cluster_sizes[-1]), "points (excluding noise).\n")
-
 
 ```
 
